@@ -1,0 +1,35 @@
+{
+  "name": "Simpatico",
+  "description": "Reading assistance technologies.",
+  "version": "1.0",
+  "browser_action": {
+	"default_popup": "popup.html"
+	},
+  "permissions": [
+    "activeTab",
+	"contextMenus",
+	"tabs",
+	"http://www.wikicfp.com/cfp/call?conference=NLP",
+	"http://www.dictionaryapi.com/*",
+	"https://www.sheffield.gov.uk/*",
+	"http://en.wikipedia.org/*",
+	"https://en.wikipedia.org/*"
+	],
+  "icons":{
+			"16": "SIMPATICO16.png",
+			"48": "SIMPATICO48.png",
+			"128": "SIMPATICO128.png"
+	},
+  "content_scripts": [
+	{
+	  "matches": ["http://www.wikicfp.com/cfp/call?conference=NLP", "https://www.sheffield.gov.uk/*", "http://*/*", "https://*/*"],
+	  "css": ["contentscript.css"],
+	  "js": ["contentscript.js"],
+	  "run_at": "document_end",
+	  "all_frames": false
+	}],
+	"web_accessible_resources": [
+		"data/*"
+    ],
+  "manifest_version": 2
+}

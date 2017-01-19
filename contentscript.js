@@ -10,6 +10,7 @@ try{
 	formatBubble();
 	//Create global variables and resources:
 	var currentWord = "";
+	var currentSimplificationProblem = []
 	var currentModification = [];
 	var previousModification = [];
 	var currentMousePosition = [];
@@ -69,40 +70,11 @@ document.addEventListener('mouseup', function (e) {
 		var sentence = "";
 		var i;
 		for (i=beg; i<end; i++){
-			sentence += tokens[i] + " ";
+			sentence += tokens[i] + "%20";
 		}
 		sentence += tokens[end];
-		mapentry = targetWord.toLowerCase();
-		//var mapentry = sentence+"|||"+targetWord+"|||"+targetToken;
-		//Get simplification for context:
-		var mapanswer = map[mapentry];
-		//If simplification is not null, change HMTL:
-		if (map[mapentry]!=null){
-			//Create simplified sentence:
-			var modifiedSentence = prefix;
-			var previousSentence = prefix;
-			for (i=0; i<targetToken; i++){
-				modifiedSentence += tokens[i] + " ";
-				previousSentence += tokens[i] + " ";
-			}
-			modifiedSentence += "<mark>" + mapanswer + "</mark> ";
-			previousSentence += targetWord + " ";
-			for (i=targetToken+1; i<tokens.length-1; i++){
-				modifiedSentence += tokens[i] + " ";
-				previousSentence += tokens[i] + " ";
-			}
-			if (targetToken<tokens.length-1){
-				modifiedSentence += tokens[tokens.length-1] + "";
-				previousSentence += tokens[tokens.length-1] + "";
-			}
-			modifiedSentence += suffix;
-			previousSentence += suffix;
-			//Save transformation:
-			currentModification = [elemnode, modifiedSentence, previousSentence];
-			//currentModification = [startc, modifiedSentence];
-			//elemnode.innerHTML = modifiedSentence;
-			//startc.textContent = modifiedSentence;
-		}
+		currentSimplificationProblem = [targetWord, sentence, targetToken, prefix, suffix, tokens, elemnode];
+		
 		//If the selection has at least one character, show bubble:
 		if (selection.length > 0) {
 			//Check to see if word is already simplified:
@@ -751,10 +723,85 @@ function produceHTMLTranslatedList(translated){
 }
 
 function simplifyWord(){
-	closeMenu();
-	closeRewind();
-	previousModification = [currentModification[0], currentModification[1], currentModification[2]];
-	currentModification[0].innerHTML = currentModification[1];
+	//Change icon of simplification request button:
+	var bt = document.getElementById('servicesimplifyimg');
+	bt.setAttribute('src', chrome.extension.getURL("/data/loading_icon_small.gif"));
+	
+	//Create request for the SIMPATICO TAE:
+	var target = currentSimplificationProblem[0];
+	var sentence = currentSimplificationProblem[1];
+	var index = currentSimplificationProblem[2];
+	var simpaticoreq = "http://parvati.dcs.shef.ac.uk:8080/?type=lexical&target="+target+"&sentence="+sentence+"&index="+index;
+	
+	//Setup a simplification request:
+	var simplification;
+	var xhttp;
+	xhttp = new XMLHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (xhttp.readyState == 4 && xhttp.status == 200) {
+			simplification = JSON.parse(xhttp.responseText)['target'][0];
+			presentSimplification(simplification);
+		}else if(xhttp.readyState == 4){
+			simplification = "null";
+			presentSimplification(simplification);
+		}
+	};
+	
+	//Send a simplification request:
+	xhttp.open("GET", simpaticoreq, true);
+	xhttp.send();
+	return;
+}
+
+function presentSimplification(simplifiedWord){
+	try{
+		var targetWord = currentSimplificationProblem[0];
+		var sentence = currentSimplificationProblem[1];
+		var targetToken = currentSimplificationProblem[2];
+		var prefix = currentSimplificationProblem[3];
+		var suffix = currentSimplificationProblem[4];
+		var tokens = currentSimplificationProblem[5];
+		var elemnode = currentSimplificationProblem[6];
+		
+		//Create simplified sentence:
+		var modifiedSentence = prefix;
+		var previousSentence = prefix;
+		for (i=0; i<targetToken; i++){
+			modifiedSentence += tokens[i] + " ";
+			previousSentence += tokens[i] + " ";
+		}
+		if (simplifiedWord!="null"){
+			modifiedSentence += "<mark>" + simplifiedWord + "</mark> ";
+		}else{
+			modifiedSentence += "<mark>" + targetWord + "</mark> ";
+		}
+		previousSentence += targetWord + " ";
+		for (i=targetToken+1; i<tokens.length-1; i++){
+			modifiedSentence += tokens[i] + " ";
+			previousSentence += tokens[i] + " ";
+		}
+		if (targetToken<tokens.length-1){
+			modifiedSentence += tokens[tokens.length-1] + "";
+			previousSentence += tokens[tokens.length-1] + "";
+		}
+		modifiedSentence += suffix;
+		previousSentence += suffix;
+		
+		//Save transformation:
+		currentModification = [elemnode, modifiedSentence, previousSentence];
+		
+		//Apply transformation:
+		previousModification = [currentModification[0], currentModification[1], currentModification[2]];
+		currentModification[0].innerHTML = currentModification[1];
+	
+		//Change icon of simplification request button:
+		var bt = document.getElementById('servicesimplifyimg');
+		bt.setAttribute('src', chrome.extension.getURL("/data/simplify.png"));
+
+		//Close menus:
+		closeMenu();
+		closeRewind();
+	} catch(err){}
 }
 
 function rewindSimplification(){
@@ -813,4 +860,23 @@ function getSelectedSuffix(node){
 		result += parentchildren[i].textContent;
 	}
 	return result;
+}
+
+function getSimplifiedWord(target, sentence, index){
+	//Create request for the SIMPATICO TAE:
+	var simpaticoreq = "http://parvati.dcs.shef.ac.uk:8080/?type=lexical&target="+target+"&sentence="+sentence+"&index="+index;
+	//Request a simplification:
+	var simplification;
+	var xhttp;
+	xhttp = new XMLHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (xhttp.readyState == 4 && xhttp.status == 200) {
+			simplification = JSON.parse(xhttp.responseText)['target'][0];
+		}else if(xhttp.readyState == 4){
+			simplification = "null";
+		}
+	};
+	xhttp.open("GET", simpaticoreq, false);
+	xhttp.send();
+	return simplification;
 }

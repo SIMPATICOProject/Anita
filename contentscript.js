@@ -25,7 +25,6 @@ document.addEventListener('mouseup', function (e) {
 	if (bubbleDOM.style.visibility!='visible' && menuDOM.style.visibility!='visible' && rewindDOM.style.visibility!='visible'){
 		//Get selection content:
 		var selectionData = window.getSelection();
-		var selection = selectionData.toString();
 		var range  = selectionData.getRangeAt(0);
 		var startc = range.startContainer;
 		var prefix = getSelectedPrefix(startc);
@@ -37,14 +36,24 @@ document.addEventListener('mouseup', function (e) {
 		}
 		var textc = String(startc.textContent);
 		var offset = range.startOffset;
+		var offsetEnd = range.endOffset;
 		//Account for spaces before word selected:
 		while (textc[offset]==' '){
 			offset += 1;
+		}
+		//Account for spaces after word selected:
+		while (textc[offsetEnd-1]==' '){
+			offsetEnd -= 1;
 		}
 		//Account for half-selected words:
 		while (textc[offset-1]!=' ' && offset>0){
 			offset -= 1;
 		}
+		while (textc[offsetEnd]!=' ' && offsetEnd<textc.length){
+			offsetEnd += 1;
+		}
+		//Get final selected text:
+		var selection = textc.substr(offset, offsetEnd-offset);
 		//Get tokens and target token:
 		var tokens = textc.split(' ');
 		var targetToken = 0;
@@ -73,7 +82,12 @@ document.addEventListener('mouseup', function (e) {
 			sentence += tokens[i] + "%20";
 		}
 		sentence += tokens[end];
-		currentSimplificationProblem = [targetWord, sentence, targetToken, prefix, suffix, tokens, elemnode];
+		//Identify type of simplification to be made:
+		var simptype = 'lexical';
+		if(selection.split(' ').length>3){
+			simptype = 'syntactic';
+		}
+		currentSimplificationProblem = [targetWord, sentence, targetToken, prefix, suffix, tokens, elemnode, simptype];
 		
 		//If the selection has at least one character, show bubble:
 		if (selection.length > 0) {
@@ -727,11 +741,19 @@ function simplifyWord(){
 	var bt = document.getElementById('servicesimplifyimg');
 	bt.setAttribute('src', chrome.extension.getURL("/data/loading_icon_small.gif"));
 	
+	//Identify type of simplification problem:
+	var simptype = currentSimplificationProblem[7];
+	
 	//Create request for the SIMPATICO TAE:
 	var target = currentSimplificationProblem[0];
 	var sentence = currentSimplificationProblem[1];
 	var index = currentSimplificationProblem[2];
-	var simpaticoreq = "http://parvati.dcs.shef.ac.uk:8080/?type=lexical&target="+target+"&sentence="+sentence+"&index="+index;
+	
+	//Create request:
+	var simpaticoreq = "http://parvati.dcs.shef.ac.uk:8080/?type=syntactic&sentence="+sentence;
+	if(simptype=='lexical'){
+		simpaticoreq = "http://parvati.dcs.shef.ac.uk:8080/?type=lexical&target="+target+"&sentence="+sentence+"&index="+index;
+	}
 	
 	//Setup a simplification request:
 	var simplification;
@@ -739,11 +761,11 @@ function simplifyWord(){
 	xhttp = new XMLHttpRequest();
 	xhttp.onreadystatechange = function() {
 		if (xhttp.readyState == 4 && xhttp.status == 200) {
-			simplification = JSON.parse(xhttp.responseText)['target'][0];
-			presentSimplification(simplification);
+			simplification = JSON.parse(xhttp.responseText);
+			presentSimplification(simplification, simptype);
 		}else if(xhttp.readyState == 4){
 			simplification = "null";
-			presentSimplification(simplification);
+			presentSimplification(simplification, simptype);
 		}
 	};
 	
@@ -753,7 +775,7 @@ function simplifyWord(){
 	return;
 }
 
-function presentSimplification(simplifiedWord){
+function presentSimplification(simplification, simptype){
 	try{
 		var targetWord = currentSimplificationProblem[0];
 		var sentence = currentSimplificationProblem[1];
@@ -763,29 +785,46 @@ function presentSimplification(simplifiedWord){
 		var tokens = currentSimplificationProblem[5];
 		var elemnode = currentSimplificationProblem[6];
 		
-		//Create simplified sentence:
-		var modifiedSentence = prefix;
-		var previousSentence = prefix;
-		for (i=0; i<targetToken; i++){
-			modifiedSentence += tokens[i] + " ";
-			previousSentence += tokens[i] + " ";
-		}
-		if (simplifiedWord!="null"){
-			modifiedSentence += "<mark>" + simplifiedWord + "</mark> ";
+		if(simptype=='lexical'){
+			//Get simplified version:
+			simplifiedWord = simplification['target'][0]
+			
+			//Create simplified sentence:
+			var modifiedSentence = prefix;
+			var previousSentence = prefix;
+			for (i=0; i<targetToken; i++){
+				modifiedSentence += tokens[i] + " ";
+				previousSentence += tokens[i] + " ";
+			}
+			if (simplifiedWord!="null"){
+				modifiedSentence += "<mark>" + simplifiedWord + "</mark> ";
+			}else{
+				modifiedSentence += "<mark>" + targetWord + "</mark> ";
+			}
+			previousSentence += targetWord + " ";
+			for (i=targetToken+1; i<tokens.length-1; i++){
+				modifiedSentence += tokens[i] + " ";
+				previousSentence += tokens[i] + " ";
+			}
+			if (targetToken<tokens.length-1){
+				modifiedSentence += tokens[tokens.length-1] + "";
+				previousSentence += tokens[tokens.length-1] + "";
+			}
+			modifiedSentence += suffix;
+			previousSentence += suffix;
 		}else{
-			modifiedSentence += "<mark>" + targetWord + "</mark> ";
+			//Get simplified version:
+			simplifiedSentence = simplification['sentence'][0]
+			
+			//Create simplified sentence:
+			var modifiedSentence = prefix + " <mark>" + simplifiedSentence + "</mark> " + suffix;
+			var previousSentence = prefix;
+			for (i=0; i<tokens.length; i++){
+				previousSentence += tokens[i] + " ";
+			}
+			previousSentence += suffix;
 		}
-		previousSentence += targetWord + " ";
-		for (i=targetToken+1; i<tokens.length-1; i++){
-			modifiedSentence += tokens[i] + " ";
-			previousSentence += tokens[i] + " ";
-		}
-		if (targetToken<tokens.length-1){
-			modifiedSentence += tokens[tokens.length-1] + "";
-			previousSentence += tokens[tokens.length-1] + "";
-		}
-		modifiedSentence += suffix;
-		previousSentence += suffix;
+		
 		
 		//Save transformation:
 		currentModification = [elemnode, modifiedSentence, previousSentence];

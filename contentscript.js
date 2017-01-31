@@ -65,14 +65,24 @@ document.addEventListener('mouseup', function (e) {
 		}
 		//Find indexes for beginning and ending of sentence containing the target within the node:
 		var beg = targetToken;
-		while (beg>=0 && tokens[beg]!="."){
+		while (beg>=0 && tokens[beg][tokens[beg].length-1]!="." && tokens[beg][tokens[beg].length-1]!="!" && tokens[beg][tokens[beg].length-1]!="?"){
 			beg = beg-1;
 		}
 		beg = beg+1;
 		var end = targetToken;
-		while (end<tokens.length-1 && tokens[end]!="."){
+		while (end<tokens.length-1 && tokens[end][tokens[end].length-1]!="." && tokens[end][tokens[end].length-1]!="!" && tokens[end][tokens[end].length-1]!="?"){
 			end = end+1;
 		}
+		//Update prefix:
+		for(var i=0; i<beg; i++){
+			prefix += ' ' + tokens[i];
+		}
+		prefix += ' ';
+		//Update suffix:
+		for(var i=end+1; i<tokens.length; i++){
+			suffix += ' ' + tokens[i];
+		}
+		suffix += ' ';
 		//Create map entry:
 		var targetWord = tokens[targetToken];
 		currentWord = targetWord;
@@ -87,7 +97,7 @@ document.addEventListener('mouseup', function (e) {
 		if(selection.split(' ').length>3){
 			simptype = 'syntactic';
 		}
-		currentSimplificationProblem = [targetWord, sentence, targetToken, prefix, suffix, tokens, elemnode, simptype];
+		currentSimplificationProblem = [targetWord, sentence, targetToken-beg, prefix, suffix, sentence.split('%20'), elemnode, simptype];
 		
 		//If the selection has at least one character, show bubble:
 		if (selection.length > 0) {
@@ -759,14 +769,19 @@ function simplifyWord(){
 	var simplification;
 	var xhttp;
 	xhttp = new XMLHttpRequest();
+	xhttp.timeout = 4000;
 	xhttp.onreadystatechange = function() {
 		if (xhttp.readyState == 4 && xhttp.status == 200) {
 			simplification = JSON.parse(xhttp.responseText);
 			presentSimplification(simplification, simptype);
 		}else if(xhttp.readyState == 4){
-			simplification = "null";
-			presentSimplification(simplification, simptype);
+			var bt = document.getElementById('servicesimplifyimg');
+			bt.setAttribute('src', chrome.extension.getURL("/data/simplify.png"));
 		}
+	};
+	xhttp.ontimeout = function() {
+		var bt = document.getElementById('servicesimplifyimg');
+		bt.setAttribute('src', chrome.extension.getURL("/data/simplify.png"));
 	};
 	
 	//Send a simplification request:
@@ -790,39 +805,30 @@ function presentSimplification(simplification, simptype){
 			simplifiedWord = simplification['target'][0]
 			
 			//Create simplified sentence:
+			var previousSentence = elemnode.textContent;
 			var modifiedSentence = prefix;
-			var previousSentence = prefix;
 			for (i=0; i<targetToken; i++){
 				modifiedSentence += tokens[i] + " ";
-				previousSentence += tokens[i] + " ";
 			}
 			if (simplifiedWord!="null"){
 				modifiedSentence += "<mark>" + simplifiedWord + "</mark> ";
 			}else{
 				modifiedSentence += "<mark>" + targetWord + "</mark> ";
 			}
-			previousSentence += targetWord + " ";
 			for (i=targetToken+1; i<tokens.length-1; i++){
 				modifiedSentence += tokens[i] + " ";
-				previousSentence += tokens[i] + " ";
 			}
 			if (targetToken<tokens.length-1){
 				modifiedSentence += tokens[tokens.length-1] + "";
-				previousSentence += tokens[tokens.length-1] + "";
 			}
 			modifiedSentence += suffix;
-			previousSentence += suffix;
 		}else{
 			//Get simplified version:
 			simplifiedSentence = simplification['sentence'][0]
 			
 			//Create simplified sentence:
 			var modifiedSentence = prefix + " <mark>" + simplifiedSentence + "</mark> " + suffix;
-			var previousSentence = prefix;
-			for (i=0; i<tokens.length; i++){
-				previousSentence += tokens[i] + " ";
-			}
-			previousSentence += suffix;
+			var previousSentence = elemnode.textContent;
 		}
 		
 		
@@ -832,15 +838,15 @@ function presentSimplification(simplification, simptype){
 		//Apply transformation:
 		previousModification = [currentModification[0], currentModification[1], currentModification[2]];
 		currentModification[0].innerHTML = currentModification[1];
-	
-		//Change icon of simplification request button:
-		var bt = document.getElementById('servicesimplifyimg');
-		bt.setAttribute('src', chrome.extension.getURL("/data/simplify.png"));
-
-		//Close menus:
-		closeMenu();
-		closeRewind();
 	} catch(err){}
+	
+	//Change icon of simplification request button:
+	var bt = document.getElementById('servicesimplifyimg');
+	bt.setAttribute('src', chrome.extension.getURL("/data/simplify.png"));
+
+	//Close menus:
+	closeMenu();
+	closeRewind();
 }
 
 function rewindSimplification(){

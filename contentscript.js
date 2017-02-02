@@ -769,7 +769,7 @@ function simplifyWord(){
 	var simplification;
 	var xhttp;
 	xhttp = new XMLHttpRequest();
-	xhttp.timeout = 4000;
+	xhttp.timeout = 20000;
 	xhttp.onreadystatechange = function() {
 		if (xhttp.readyState == 4 && xhttp.status == 200) {
 			simplification = JSON.parse(xhttp.responseText);
@@ -811,9 +811,11 @@ function presentSimplification(simplification, simptype){
 				modifiedSentence += tokens[i] + " ";
 			}
 			if (simplifiedWord!="null"){
-				modifiedSentence += "<mark>" + simplifiedWord + "</mark> ";
+				//modifiedSentence += "<mark>" + simplifiedWord + "</mark> ";
+				modifiedSentence += simplifiedWord + " ";
 			}else{
-				modifiedSentence += "<mark>" + targetWord + "</mark> ";
+				//modifiedSentence += "<mark>" + targetWord + "</mark> ";
+				modifiedSentence += targetWord + " ";
 			}
 			for (i=targetToken+1; i<tokens.length-1; i++){
 				modifiedSentence += tokens[i] + " ";
@@ -827,7 +829,8 @@ function presentSimplification(simplification, simptype){
 			simplifiedSentence = simplification['sentence'][0]
 			
 			//Create simplified sentence:
-			var modifiedSentence = prefix + " <mark>" + simplifiedSentence + "</mark> " + suffix;
+			//var modifiedSentence = prefix + " <mark>" + simplifiedSentence + "</mark> " + suffix;
+			var modifiedSentence = prefix + " " + simplifiedSentence + " " + suffix;
 			var previousSentence = elemnode.textContent;
 		}
 		

@@ -775,6 +775,7 @@ function simplifyWord(){
 			simplification = JSON.parse(xhttp.responseText);
 			presentSimplification(simplification, simptype);
 		}else if(xhttp.readyState == 4){
+			alert(xhttp.status);
 			var bt = document.getElementById('servicesimplifyimg');
 			bt.setAttribute('src', chrome.extension.getURL("/data/simplify.png"));
 		}
